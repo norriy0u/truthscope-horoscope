@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Stellar Truths — Brutally Honest Horoscope</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;800&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --space: #05051A;
+            --space-light: #121233;
+            --gold: #D4AF37;
+            --gold-glow: rgba(212, 175, 55, 0.4);
+            --parchment: #F2ebd9;
+            --font-head: 'Cinzel', serif;
+            --font-body: 'Libre Baskerville', serif;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body, html { width:100%; height:100%; overflow:hidden; background:var(--space); color:#fff; font-family:var(--font-body); user-select:none; }
+
+        /* Canvas Stars */
+        #star-canvas { position:fixed; inset:0; pointer-events:none; z-index:0; }
+
+        .page { position:fixed; inset:0; display:none; flex-direction:column; z-index:10; overflow-y:auto; overflow-x:hidden;}
+        .page.active { display:flex; }
+
+        /* General UI */
+        .gold-text { color:var(--gold); }
+        .head-title { font-family:var(--font-head); font-size:clamp(2rem, 5vw, 4rem); text-align:center; text-shadow:0 0 20px var(--gold-glow); }
+        .sub-text { text-align:center; font-style:italic; color:#ccc; margin-top:10px; font-size:1.1rem; }
+
+        /* ===== PAGE 1: HOOK ===== */
+        #p1 { justify-content:center; align-items:center; }
+        
+        .zodiac-bg-wheel {
+            position:absolute; width:120vmin; height:120vmin; top:50%; left:50%;
+            transform:translate(-50%, -50%); border:1px solid rgba(255,255,255,0.05);
+            border-radius:50%; pointer-events:none; z-index:1;
+            background:url('data:image/svg+xml;utf8,<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><circle cx="50" cy="50" r="48" fill="none" stroke="%23D4AF37" stroke-width="0.2" opacity="0.5" stroke-dasharray="1 3"/><circle cx="50" cy="50" r="40" fill="none" stroke="%23D4AF37" stroke-width="0.1" opacity="0.3"/></svg>') center/cover;
+            animation:rotateWheel 120s linear infinite; opacity:0.6;
+        }
+        @keyframes rotateWheel { to{transform:translate(-50%,-50%) rotate(360deg)} }
+
+        .shooting-star {
+            position:absolute; top:20%; left:-10%; width:100px; height:2px;
+            background:linear-gradient(90deg, transparent, #fff, transparent);
+            transform:rotate(-45deg); opacity:0; z-index:5;
+        }
+        @keyframes shoot { 0%{transform:translateX(0) translateY(0) rotate(-45deg); opacity:1} 100%{transform:translateX(150vw) translateY(150vh) rotate(-45deg); opacity:0} }
+
+        .hook-content { position:relative; z-index:20; text-align:center; padding:20px; background:radial-gradient(circle, rgba(5,5,26,0.8) 0%, transparent 70%); }
+        .hook-msg { margin-top:20px; font-size:1.5rem; text-transform:uppercase; letter-spacing:4px; color:var(--gold); }
+
+        .cta-btn {
+            font-family:var(--font-head); font-size:1.5rem; padding:15px 40px; margin-top:40px;
+            background:transparent; color:var(--gold); border:2px solid var(--gold); border-radius:4px;
+            cursor:pointer; transition:0.4s; letter-spacing:2px; position:relative; overflow:hidden;
+        }
+        .cta-btn::before { content:''; position:absolute; inset:2px; border:1px dashed var(--gold); opacity:0.5; border-radius:2px; }
+        .cta-btn:hover { background:var(--gold); color:var(--space); box-shadow:0 0 30px var(--gold-glow); }
+        .cta-btn:hover::before { border-color:var(--space); }
+
+        /* ===== PAGE 2: SELECTION ===== */
+        #p2 { align-items:center; padding-top:40px; }
+        
+        .wheel-container {
+            position:relative; width:350px; min-height:350px; aspect-ratio:1/1; margin:60px 0;
+            border-radius:50%; border:1px dashed rgba(212, 175, 55, 0.3);
+            transition:0.5s; z-index:10; flex-shrink:0; display:block;
+        }
+        .wheel-center { position:absolute; inset:20%; border-radius:50%; border:2px solid var(--gold); display:flex; justify-content:center; align-items:center; text-align:center; font-family:var(--font-head); font-size:1.2rem; background:rgba(5,5,26,0.8); z-index:5; box-shadow:0 0 20px var(--gold-glow); }
+        
+        .z-sign {
+            position:absolute; width:50px; height:50px; left:50%; top:50%;
+            margin:-25px; border-radius:50%; background:var(--space-light);
+            border:1px solid var(--gold); display:flex; flex-direction:column; justify-content:center; align-items:center;
+            cursor:pointer; transition:0.3s; z-index:10;
+        }
+        .z-sign:hover { transform:scale(1.2); background:var(--gold); color:var(--space); box-shadow:0 0 15px var(--gold); }
+        .z-icon { font-size:1.5rem; }
+        .z-name { font-size:0.6rem; text-transform:uppercase; font-family:var(--font-body); letter-spacing:1px; margin-top:2px; display:none; }
+        .z-sign:hover .z-name { display:block; color:var(--space);}
+
+        .chips-container {
+            display:flex; flex-wrap:wrap; gap:15px; justify-content:center; max-width:600px;
+            margin-top:20px; opacity:0; transform:translateY(20px); transition:1s; pointer-events:none;
+        }
+        .chips-container.visible { opacity:1; transform:translateY(0); pointer-events:all; }
+
+        .chip {
+            padding:12px 25px; background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.1);
+            border-radius:30px; cursor:pointer; backdrop-filter:blur(5px); font-family:var(--font-head);
+            letter-spacing:1px; transition:0.3s; font-size:1.1rem;
+        }
+        .chip:hover { border-color:var(--gold); }
+        .chip.selected { background:var(--gold); color:var(--space); border-color:var(--gold); box-shadow:0 0 20px var(--gold-glow); }
+
+        .btn-consult {
+            margin-top:40px; font-family:var(--font-head); font-size:1.2rem; padding:15px 40px;
+            background:var(--gold); color:var(--space); border:none; cursor:pointer;
+            letter-spacing:2px; opacity:0; pointer-events:none; transition:0.5s; border-radius:4px;
+        }
+        .btn-consult.visible { opacity:1; pointer-events:all; }
+
+        /* Animation class for chosen sign */
+        .fly-center { position:fixed !important; top:50% !important; left:50% !important; transform:translate(-50%,-50%) scale(2) !important; z-index:100; transition:0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+
+        /* ===== PAGE 3: HOROSCOPE REVEAL ===== */
+        #p3 { justify-content:center; align-items:center; padding:40px 20px; }
+
+        .svg-constellation { position:fixed; inset:0; z-index:1; pointer-events:none; opacity:0.3; }
+        .constellation-line { fill:none; stroke:var(--gold); stroke-width:1; stroke-dasharray:1000; stroke-dashoffset:1000; }
+        
+        .parchment {
+            background:#f4f1ea; color:#222; max-width:600px; width:95%; padding:40px;
+            border-radius:3px; position:relative; box-shadow:0 30px 60px rgba(0,0,0,0.8);
+            border:1px solid #d4c4a8; z-index:10; opacity:0; transform:translateY(20px); transition:1s;
+        }
+        .parchment::before { content:''; position:absolute; top:-10px; left:10px; right:10px; height:15px; background:linear-gradient(to right, #8a6c3f, #c5a97a, #8a6c3f); border-radius:2px; }
+        .parchment::after { content:''; position:absolute; bottom:-10px; left:10px; right:10px; height:15px; background:linear-gradient(to right, #8a6c3f, #c5a97a, #8a6c3f); border-radius:2px; }
+
+        .p-sign-header { font-family:var(--font-head); font-size:2rem; text-align:center; color:#5c4d32; border-bottom:2px solid #d4c4a8; padding-bottom:15px; margin-bottom:25px; }
+        .p-body { font-size:1.1rem; line-height:1.8; text-align:justify; margin-bottom:20px; min-height:150px; }
+        .p-truth { background:rgba(212,175,55,0.15); padding:15px; border-left:4px solid var(--gold); font-style:italic; font-weight:700; color:#4a3f2a; }
+
+        .compat-section { margin-top:40px; border-top:1px dashed #d4c4a8; padding-top:20px; text-align:center; }
+        .compat-title { font-family:var(--font-head); color:#5c4d32; margin-bottom:15px; }
+        
+        .compat-meter-bg { width:100%; height:8px; background:#ddd; border-radius:4px; margin:20px 0; overflow:hidden; }
+        .compat-meter-fill { height:100%; background:linear-gradient(90deg, #b71c1c, #d4af37, #1b5e20); width:0%; transition:width 1.5s ease-out; }
+        .speech-bubble { background:#111; color:#fff; padding:15px; border-radius:8px; font-style:italic; position:relative; text-align:center; }
+        .speech-bubble::before { content:''; position:absolute; bottom:100%; left:50%; margin-left:-10px; border-width:10px; border-style:solid; border-color:transparent transparent #111 transparent; }
+
+        .actions { display:flex; justify-content:center; gap:15px; margin-top:40px; z-index:10;}
+        .p-btn { border:1px solid var(--gold); background:transparent; color:var(--gold); padding:12px 25px; font-family:var(--font-head); cursor:pointer; transition:0.3s; border-radius:4px; }
+        .p-btn:hover { background:var(--gold); color:var(--space); }
+
+        /* ===== PAGE 4: COMMUNITY CARDS ===== */
+        #p4 { background:var(--space); padding:40px 20px; align-items:center; }
+        .c-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:20px; width:100%; max-width:900px; margin-top:30px; }
+        
+        .c-card {
+            background:#121233; border:1px solid #2a2a5a; padding:20px; text-align:center;
+            border-radius:8px; transition:0.3s; cursor:pointer; display:flex; flex-direction:column; align-items:center;
+        }
+        .c-card:hover { border-color:var(--gold); transform:translateY(-5px); box-shadow:0 10px 20px rgba(0,0,0,0.5); }
+        .c-icon { font-size:2rem; margin-bottom:10px; color:var(--gold); }
+        .c-name { font-family:var(--font-head); letter-spacing:2px; margin-bottom:10px; border-bottom:1px solid #333; padding-bottom:5px; width:100%; }
+        .c-body { font-size:0.9rem; color:#aaa; font-style:italic; line-height:1.5; }
+
+        @media(max-width:600px){
+            .wheel-container { width:280px; min-height:280px; margin:40px 0; }
+            .wheel-center { font-size:1rem; }
+            .parchment { padding:25px 20px; }
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="star-canvas"></canvas>
+
+<!-- PAGE 1: HOOK -->
+<div class="page active" id="p1">
+    <div class="zodiac-bg-wheel"></div>
+    <div class="shooting-star" id="shooter"></div>
+    
+    <div class="hook-content">
+        <h1 class="head-title">Your Horoscope<br>Has Been Lying.</h1>
+        <p class="sub-text">Cosmic clarity without the toxic positivity.</p>
+        <button class="cta-btn" id="btn-hook" onclick="goTo('p2')">GET THE TRUTH</button>
+    </div>
+</div>
+
+<!-- PAGE 2: SELECTION -->
+<div class="page" id="p2">
+    <h2 class="head-title" style="font-size:2.5rem;">Align Your Stars</h2>
+    <p class="sub-text">Identify your sign, confront your burden.</p>
+    
+    <div class="wheel-container" id="wheel">
+        <div class="wheel-center" id="w-center">SELECT<br>SIGN</div>
+        <!-- Signs injected by JS to form a circle -->
+    </div>
+
+    <div class="chips-container" id="chips">
+        <div class="chip" data-prob="Money">💸 financial struggles</div>
+        <div class="chip" data-prob="Love">💔 romantic delusion</div>
+        <div class="chip" data-prob="Career">💼 career stagnation</div>
+        <div class="chip" data-prob="Studies">📚 academic burnout</div>
+        <div class="chip" data-prob="Family">👨‍👩‍👧 familial chaos</div>
+        <div class="chip" data-prob="Existential">🌀 existential dread</div>
+    </div>
+    
+    <button class="btn-consult" id="btn-consult">CONSULT THE STARS</button>
+</div>
+
+<!-- PAGE 3: HOROSCOPE REVEAL -->
+<div class="page" id="p3">
+    <!-- SVG background constellation drawing -->
+    <svg class="svg-constellation" preserveAspectRatio="none" viewBox="0 0 1000 1000">
+        <path class="constellation-line" id="c-line" d="M100,500 L300,200 L500,400 L800,100 L950,600 L700,800 L400,600 Z"/>
+    </svg>
+    
+    <div class="parchment" id="parchment">
+        <div class="p-sign-header" id="res-sign-title">ARIES · THE RAM</div>
+        <div class="p-body" id="res-body"></div>
+        <div class="p-truth" id="res-truth"></div>
+        
+        <div class="compat-section" id="compat-box">
+            <div class="compat-title">Calculate Compatibility Risk</div>
+            <select id="compat-select" style="padding:10px; font-family:var(--font-head); background:#fff; border:1px solid #d4c4a8;">
+                <option value="">Select their sign...</option>
+                <!-- populated by JS -->
+            </select>
+            
+            <div id="compat-result" style="display:none;">
+                <div class="compat-meter-bg"><div class="compat-meter-fill" id="c-meter"></div></div>
+                <div class="speech-bubble" id="c-text"></div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="actions" id="p3-actions" style="opacity:0; transition:opacity 1s;">
+        <button class="p-btn" id="btn-dl">📥 SAVE READING</button>
+        <button class="p-btn" onclick="goTo('p4')">🌐 VIEW ALL SIGNS</button>
+    </div>
+</div>
+
+<!-- PAGE 4: COMMUNITY DOSSIERS -->
+<div class="page" id="p4">
+    <h2 class="head-title" style="font-size:2.5rem;">Universal Truths</h2>
+    <p class="sub-text">What the universe really thinks of everyone today.</p>
+    
+    <div class="c-grid" id="c-grid"></div>
+    <div class="actions">
+        <button class="p-btn" onclick="location.reload()">↺ Start Over</button>
+    </div>
+</div>
+
+<script>
+// ===== AUDIO ENGINE =====
+let audioCtx;
+function initAudio(){ if(!audioCtx) audioCtx=new(window.AudioContext||window.webkitAudioContext)(); if(audioCtx.state==='suspended') audioCtx.resume(); }
+
+function playChime(){
+    if(!audioCtx) return;
+    const t=audioCtx.currentTime;
+    [523.25, 659.25, 783.99, 1046.50].forEach((f,i)=>{
+        const o=audioCtx.createOscillator(); const g=audioCtx.createGain();
+        o.type='sine'; o.frequency.value=f;
+        g.gain.setValueAtTime(0,t+i*0.1);
+        g.gain.linearRampToValueAtTime(0.2,t+i*0.1+0.05);
+        g.gain.exponentialRampToValueAtTime(0.01,t+i*0.1+2);
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start(t+i*0.1); o.stop(t+i*0.1+2);
+    });
+}
+
+function playType(){
+    if(!audioCtx) return;
+    const t=audioCtx.currentTime;
+    const o=audioCtx.createOscillator(); const g=audioCtx.createGain();
+    o.type='square'; o.frequency.value=150+Math.random()*50;
+    g.gain.setValueAtTime(0.05,t); g.gain.exponentialRampToValueAtTime(0.01,t+0.05);
+    o.connect(g); g.connect(audioCtx.destination); o.start(t); o.stop(t+0.05);
+}
+
+// ===== CANVAS STARS =====
+const canvas=document.getElementById('star-canvas');
+const ctx=canvas.getContext('2d');
+let stars=[];
+
+function resize(){ canvas.width=window.innerWidth; canvas.height=window.innerHeight; initStars(); }
+window.addEventListener('resize',resize);
+
+function initStars(){
+    stars=[];
+    const amt = window.innerWidth<600 ? 100 : 300;
+    for(let i=0;i<amt;i++){
+        stars.push({ x:Math.random()*canvas.width, y:Math.random()*canvas.height, r:Math.random()*1.5, a:Math.random(), s:0.01+Math.random()*0.02 });
+    }
+}
+function drawStars(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    stars.forEach(st=>{
+        st.a += st.s;
+        if(st.a>1 || st.a<0) st.s*=-1;
+        ctx.beginPath(); ctx.arc(st.x,st.y,st.r,0,Math.PI*2);
+        ctx.fillStyle=`rgba(255,255,255,${Math.abs(st.a)})`; ctx.fill();
+    });
+    requestAnimationFrame(drawStars);
+}
+resize(); drawStars();
+
+// Shooting Star loop
+setInterval(()=>{
+    const s=document.getElementById('shooter');
+    s.style.top = Math.random()*50+'%';
+    s.style.animation = 'none';
+    void s.offsetWidth; // reset
+    s.style.animation = 'shoot 2s linear';
+}, 8000);
+
+// ===== DATA =====
+const ZODIAC = [
+    {n:'Aries',i:'♈'}, {n:'Taurus',i:'♉'}, {n:'Gemini',i:'♊'}, {n:'Cancer',i:'♋'},
+    {n:'Leo',i:'♌'}, {n:'Virgo',i:'♍'}, {n:'Libra',i:'♎'}, {n:'Scorpio',i:'♏'},
+    {n:'Sagittarius',i:'♐'}, {n:'Capricorn',i:'♑'}, {n:'Aquarius',i:'♒'}, {n:'Pisces',i:'♓'}
+];
+
+const ROASTS = {
+    Money: "The stars see your bank account, and honestly, they're embarrassed for you. You keep manifesting wealth but refuse to stop buying iced coffee and impulse trinkets.",
+    Love: "Venus is in retrograde, but let's be real—your relationship problems are because you ignore massive red flags just because they text back fast.",
+    Career: "You say you want to be a boss, but your work ethic is currently powered by 4 hours of sleep and pure panic. Stop procrastinating.",
+    Studies: "The cosmos reveals that highlighting the entire textbook in neon yellow does not actually upload the knowledge to your brain.",
+    Family: "Mercury cannot be blamed for the fact that you haven't set a single healthy boundary with your relatives in ten years.",
+    Existential: "You're not having a dark night of the soul. You just need to drink a glass of water, go outside, and stop doom-scrolling at 3 AM."
+};
+
+const TRUTHS = {
+    Money: "TRUTH: Respect your money, and it will stay. Create a rigid budget today.",
+    Love: "TRUTH: You are enough on your own. Stop settling for less than bare minimum.",
+    Career: "TRUTH: Dedication requires sacrifice. Put down the phone and do the deep work.",
+    Studies: "TRUTH: Test yourself actively. Passive reading is a comforting illusion.",
+    Family: "TRUTH: Boundaries are not cruel; they are necessary for survival.",
+    Existential: "TRUTH: Action cures anxiety. Do one small physical task right now."
+};
+
+const DAILY_ONE_LINERS = {
+    "Aries": "Your anger is not a personality trait.", "Taurus": "Being stubborn doesn't mean you're right.",
+    "Gemini": "Pick one personality and stick with it today.", "Cancer": "Stop crying over people who don't care.",
+    "Leo": "The world doesn't orbit you. Shocking, I know.", "Virgo": "Perfectionism is just a mask for fear of failure.",
+    "Libra": "Make a decision. Any decision. We're begging you.", "Scorpio": "Holding a grudge isn't mysterious, it's exhausting.",
+    "Sagittarius": "Running away won't solve your problems.", "Capricorn": "Your boss won't love you back. Take a break.",
+    "Aquarius": "Having a god complex but no money is wild.", "Pisces": "Wake up. The daydream is over."
+};
+
+let selSign=null, selProb=null;
+
+// ===== NAV =====
+function goTo(id){
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+}
+
+document.getElementById('btn-hook').addEventListener('click',()=>{ initAudio(); playChime(); });
+
+// ===== PAGE 2: WHEEL GENERATION =====
+const wheel=document.getElementById('wheel');
+const radius = window.innerWidth<600 ? 120 : 150;
+
+ZODIAC.forEach((z,i)=>{
+    const el = document.createElement('div');
+    el.className = 'z-sign';
+    const angle = (i * 30 - 90) * (Math.PI/180);
+    
+    el.style.left = `calc(50% + ${radius * Math.cos(angle)}px)`;
+    el.style.top = `calc(50% + ${radius * Math.sin(angle)}px)`;
+    
+    el.innerHTML = `<div class="z-icon">${z.i}</div><div class="z-name">${z.n}</div>`;
+    
+    el.addEventListener('click', function(e){
+        initAudio(); playChime();
+        if(selSign) selSign.el.style.background='';
+        
+        selSign = { z:z, el:this };
+        document.getElementById('w-center').innerHTML = `${z.i}<br>${z.n}`;
+        this.style.background = 'var(--gold)';
+        this.style.color = 'var(--space)';
+        
+        document.getElementById('chips').classList.add('visible');
+        checkP2Ready();
+    });
+    
+    wheel.appendChild(el);
+});
+
+document.querySelectorAll('.chip').forEach(c=>{
+    c.addEventListener('click', function(){
+        initAudio(); playChime();
+        document.querySelectorAll('.chip').forEach(ch=>ch.classList.remove('selected'));
+        this.classList.add('selected');
+        selProb = this.dataset.prob;
+        checkP2Ready();
+    });
+});
+
+function checkP2Ready(){
+    if(selSign && selProb) document.getElementById('btn-consult').classList.add('visible');
+}
+
+// ===== PAGE 3 REVEAL =====
+document.getElementById('btn-consult').addEventListener('click', ()=>{
+    initAudio();
+    // Remember sign in localstorage
+    localStorage.setItem('hv_sign', selSign.z.n);
+    
+    // Animation to P3
+    document.getElementById('p2').style.opacity=0;
+    setTimeout(()=>{
+        goTo('p3');
+        document.getElementById('parchment').style.opacity=1;
+        document.getElementById('parchment').style.transform='translateY(0)';
+        
+        // Custom SVG drawing animation
+        document.getElementById('c-line').style.animation = 'drawSVG 3s linear forwards';
+        
+        const style = document.createElement('style');
+        style.innerHTML = `@keyframes drawSVG { to { stroke-dashoffset: 0; } }`;
+        document.head.appendChild(style);
+        
+        doReading();
+    }, 500);
+});
+
+function doReading(){
+    document.getElementById('res-sign-title').textContent = `${selSign.z.n.toUpperCase()} · THE TRUTH`;
+    const bodyText = ROASTS[selProb];
+    const truthText = TRUTHS[selProb];
+    
+    typeWriter(document.getElementById('res-body'), bodyText, 15, ()=>{
+        document.getElementById('res-truth').style.opacity = 0;
+        document.getElementById('res-truth').textContent = truthText;
+        let o=0; const iv=setInterval(()=>{o+=0.05;document.getElementById('res-truth').style.opacity=o;if(o>=1){clearInterval(iv);showCompat();}},50);
+    });
+}
+
+function typeWriter(el, txt, speed, cb){
+    el.innerHTML='';
+    let i=0;
+    const iv = setInterval(()=>{
+        el.innerHTML += txt.charAt(i);
+        if(i%3===0) playType();
+        i++;
+        if(i>=txt.length) { clearInterval(iv); if(cb) cb(); }
+    }, speed);
+}
+
+// Compatibility block
+function showCompat(){
+    const sel = document.getElementById('compat-select');
+    sel.innerHTML = '<option value="">Select their sign to analyze risk...</option>';
+    ZODIAC.forEach(z=>{
+        if(z.n !== selSign.z.n) sel.innerHTML += `<option value="${z.n}">${z.i} ${z.n}</option>`;
+    });
+    document.getElementById('p3-actions').style.opacity=1;
+}
+
+document.getElementById('compat-select').addEventListener('change', function(){
+    if(!this.value) return;
+    initAudio(); playChime();
+    document.getElementById('compat-result').style.display='block';
+    
+    // Randomize score but seed it by sign names loosely
+    const score = Math.floor(Math.random()*100); 
+    setTimeout(()=>{ document.getElementById('c-meter').style.width = `${score}%`; }, 100);
+    
+    let msg = "";
+    if(score<30) msg = "Absolute disaster. They will drain your energy and ruin your weekend.";
+    else if(score<70) msg = "Passable, but expect intense passive-aggressive texting during Mercury retrograde.";
+    else msg = "A rare alliance. You are equally chaotic and might survive each other.";
+    
+    document.getElementById('c-text').textContent = `${score}% Match. ${msg}`;
+});
+
+// ===== PAGE 4 GALLERY =====
+const cGrid = document.getElementById('c-grid');
+ZODIAC.forEach(z=>{
+    const c = document.createElement('div');
+    c.className = 'c-card';
+    const isUser = (selSign && selSign.z.n === z.n) || localStorage.getItem('hv_sign')===z.n;
+    if(isUser) c.style.borderColor = 'var(--gold)';
+    
+    c.innerHTML = `
+        <div class="c-icon">${z.i}</div>
+        <div class="c-name" style="${isUser?'color:var(--gold)':''}">${z.n.toUpperCase()}</div>
+        <div class="c-body">"${DAILY_ONE_LINERS[z.n]}"</div>
+    `;
+    cGrid.appendChild(c);
+});
+
+// Download
+document.getElementById('btn-dl').addEventListener('click', ()=>{
+    const txt = `✨ STELLAR TRUTHS ✨\nSign: ${selSign.z.n.toUpperCase()}\nArea: ${selProb.toUpperCase()}\n\nHOROSCOPE:\n${ROASTS[selProb]}\n\n${TRUTHS[selProb]}\n\n--\nGenerated by Stellar Truths - VishwaNova 2026`;
+    const b = new Blob([txt],{type:'text/plain'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(b); a.download=`Reading_${selSign.z.n}.txt`; a.click();
+});
+</script>
+</body>
+</html>
